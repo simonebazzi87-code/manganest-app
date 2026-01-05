@@ -10,9 +10,12 @@ header button { border:none; padding:6px 10px; border-radius:4px; cursor:pointer
 header button.active { background:#555 }
 section { padding:15px }
 .card { background:white; padding:12px; margin-bottom:12px; border-radius:6px; border:1px solid #ccc }
-.row { display:flex; gap:12px; align-items:center; flex-wrap:wrap }
-img.avatar { width:80px; height:80px; object-fit:cover; border-radius:6px }
+.row { display:flex; gap:10px; align-items:center; flex-wrap:wrap }
+img.cover { height:80px; border-radius:4px }
+.small { font-size:0.85em; color:#555 }
 .ok { background:#2e7d32; color:white }
+.danger { background:#c62828; color:white }
+input, select { padding:4px }
 </style>
 </head>
 <body>
@@ -21,132 +24,210 @@ img.avatar { width:80px; height:80px; object-fit:cover; border-radius:6px }
 <section id="content"></section>
 
 <script>
-const DBKEY = "manganest-db";
+const DBKEY="manganest-db";
 
-let db = JSON.parse(localStorage.getItem(DBKEY)) || {
-  currentUser: null,
-  users: [
-    { id: "simone", name: "Simone", color: "#4CAF50", avatar: "" },
-    { id: "andrea", name: "Andrea", color: "#FFC107", avatar: "" }
+let db=JSON.parse(localStorage.getItem(DBKEY))||{
+  currentUser:null,
+  users:[
+    {id:"simone",name:"Simone",color:"#4CAF50",avatar:""},
+    {id:"andrea",name:"Andrea",color:"#FFC107",avatar:""}
   ],
-  sagas: [],
-  series: [],
-  volumes: []
+  sagas:[],
+  series:[],
+  volumes:[]
 };
 
-function save() {
-  localStorage.setItem(DBKEY, JSON.stringify(db));
-}
+function save(){localStorage.setItem(DBKEY,JSON.stringify(db));}
 
-const sections = [
-  "Home",
-  "Aggiungi utente",
-  "Database",
-  "Aggiungi numeri",
-  "Lettura",
-  "Riordina volumi",
-  "Edicola",
-  "Backup"
+const sections=[
+  "Home","Aggiungi utente","Database",
+  "Aggiungi numeri","Lettura",
+  "Riordina volumi","Edicola","Backup"
 ];
 
-let currentSection = "Home";
+let current="Home";
 
-/* ---------- MENU ---------- */
-function renderMenu() {
-  const menu = document.getElementById("menu");
-  menu.innerHTML = "";
-
-  if (!db.currentUser) return;
-
-  sections.forEach(sec => {
-    const btn = document.createElement("button");
-    btn.textContent = sec;
-    if (sec === currentSection) btn.classList.add("active");
-    btn.onclick = () => {
-      currentSection = sec;
-      render();
-    };
-    menu.appendChild(btn);
+/* MENU */
+function menu(){
+  const m=document.getElementById("menu");
+  m.innerHTML="";
+  if(!db.currentUser) return;
+  sections.forEach(s=>{
+    const b=document.createElement("button");
+    b.textContent=s;
+    if(current===s) b.classList.add("active");
+    b.onclick=()=>{current=s;render();};
+    m.appendChild(b);
   });
 }
 
-/* ---------- RENDER ---------- */
-function render() {
-  renderMenu();
-  const c = document.getElementById("content");
-  c.innerHTML = "";
-
-  if (!db.currentUser && currentSection !== "Home") {
-    currentSection = "Home";
-  }
-
+function render(){
+  menu();
+  const c=document.getElementById("content");
+  c.innerHTML="";
+  if(!db.currentUser && current!=="Home") current="Home";
   ({
-    Home: renderHome,
-    "Aggiungi utente": renderUsers,
-    Database: renderDatabase,
-    "Aggiungi numeri": placeholder,
-    Lettura: placeholder,
-    "Riordina volumi": placeholder,
-    Edicola: placeholder,
-    Backup: placeholder
-  })[currentSection](c);
+    Home:home,
+    "Aggiungi utente":users,
+    Database:database,
+    "Aggiungi numeri":placeholder,
+    Lettura:placeholder,
+    "Riordina volumi":placeholder,
+    Edicola:placeholder,
+    Backup:placeholder
+  })[current](c);
 }
 
-/* ---------- HOME ---------- */
-function renderHome(c) {
-  c.innerHTML = "<h2>Chi sta usando MangaNest?</h2>";
-
-  db.users.forEach(u => {
-    const card = document.createElement("div");
-    card.className = "card row";
-    card.innerHTML = `
-      <img class="avatar" src="${u.avatar || "https://via.placeholder.com/80"}">
-      <strong>${u.name}</strong>
+/* HOME */
+function home(c){
+  c.innerHTML="<h2>Chi sta usando MangaNest?</h2>";
+  db.users.forEach(u=>{
+    const d=document.createElement("div");
+    d.className="card row";
+    d.innerHTML=`
+      <img src="${u.avatar||"https://via.placeholder.com/80"}" width="80">
+      <b>${u.name}</b>
       <button class="ok">Entra</button>
     `;
-    card.querySelector("button").onclick = () => {
-      db.currentUser = u.id;
-      save();
-      currentSection = "Database";
-      render();
+    d.querySelector("button").onclick=()=>{
+      db.currentUser=u.id; save(); current="Database"; render();
     };
-    c.appendChild(card);
-  });
-}
-
-/* ---------- AGGIUNGI UTENTE ---------- */
-function renderUsers(c) {
-  c.innerHTML = "<h2>Aggiungi / modifica utenti</h2>";
-
-  db.users.forEach(u => {
-    const d = document.createElement("div");
-    d.className = "card row";
-    d.innerHTML = `
-      <input value="${u.name}">
-      <input type="color" value="${u.color}">
-      <input placeholder="Avatar URL" value="${u.avatar}">
-    `;
-    const [name, color, avatar] = d.children;
-
-    name.onchange = () => { u.name = name.value; save(); };
-    color.onchange = () => { u.color = color.value; save(); };
-    avatar.onchange = () => { u.avatar = avatar.value; save(); };
-
     c.appendChild(d);
   });
 }
 
-/* ---------- PLACEHOLDER ---------- */
-function renderDatabase(c) {
-  c.innerHTML = "<p>Database – verrà completato nello step successivo.</p>";
+/* UTENTI */
+function users(c){
+  c.innerHTML="<h2>Aggiungi / modifica utenti</h2>";
+  db.users.forEach(u=>{
+    const d=document.createElement("div");
+    d.className="card row";
+    d.innerHTML=`
+      <input value="${u.name}">
+      <input type="color" value="${u.color}">
+      <input placeholder="Avatar URL" value="${u.avatar}">
+    `;
+    const [n,col,av]=d.children;
+    n.onchange=()=>{u.name=n.value;save();};
+    col.onchange=()=>{u.color=col.value;save();};
+    av.onchange=()=>{u.avatar=av.value;save();};
+    c.appendChild(d);
+  });
 }
 
-function placeholder(c) {
-  c.innerHTML = "<p>Sezione in costruzione.</p>";
+/* DATABASE */
+function database(c){
+  c.innerHTML="<h2>Database</h2>";
+
+  /* SAGHE */
+  const s=document.createElement("div");
+  s.className="card";
+  s.innerHTML="<h3>Saghe</h3><input id='ns'><button class='ok'>Aggiungi</button>";
+  s.querySelector("button").onclick=()=>{
+    const v=s.querySelector("#ns").value.trim();
+    if(v && !db.sagas.find(x=>x.name===v)){
+      db.sagas.push({id:crypto.randomUUID(),name:v});
+      save(); render();
+    }
+  };
+  db.sagas.sort((a,b)=>a.name.localeCompare(b.name)).forEach(g=>{
+    const r=document.createElement("div");
+    r.className="row";
+    r.innerHTML=`
+      <input value="${g.name}">
+      <button class="danger">Elimina</button>
+    `;
+    r.querySelector("input").onchange=e=>{g.name=e.target.value;save();};
+    r.querySelector("button").onclick=()=>{
+      db.series.forEach(s=>{ if(s.sagaId===g.id) s.sagaId=null; });
+      db.sagas=db.sagas.filter(x=>x.id!==g.id);
+      save(); render();
+    };
+    s.appendChild(r);
+  });
+  c.appendChild(s);
+
+  /* SERIE */
+  const d=document.createElement("div");
+  d.className="card";
+  d.innerHTML=`
+    <h3>Nuova serie</h3>
+    <input id="n" placeholder="Nome">
+    <select id="sg">
+      <option value="">Nessuna saga</option>
+      ${db.sagas.map(x=>`<option value="${x.id}">${x.name}</option>`)}
+    </select>
+    <select id="st">
+      <option>in corso</option>
+      <option>finita</option>
+      <option>interrotta</option>
+    </select>
+    <input id="au" placeholder="Autori (,)">
+    <input id="ed" placeholder="Editore">
+    <input id="im" placeholder="URL immagine">
+    <button class="ok">Aggiungi</button>
+  `;
+  d.querySelector("button").onclick=()=>{
+    const name=d.querySelector("#n").value.trim();
+    if(!name) return;
+    let sagaId=d.querySelector("#sg").value;
+    if(!sagaId){
+      const sg={id:crypto.randomUUID(),name};
+      db.sagas.push(sg);
+      sagaId=sg.id;
+    }
+    db.series.push({
+      id:crypto.randomUUID(),
+      name,
+      sagaId,
+      status:d.querySelector("#st").value,
+      authors:d.querySelector("#au").value.split(",").map(x=>x.trim()).filter(Boolean),
+      publisher:d.querySelector("#ed").value,
+      img:d.querySelector("#im").value
+    });
+    save(); render();
+  };
+  c.appendChild(d);
+
+  /* LISTA SERIE */
+  db.sagas
+    .sort((a,b)=>a.name.localeCompare(b.name))
+    .forEach(g=>{
+      const box=document.createElement("div");
+      box.className="card";
+      box.innerHTML=`<h3>${g.name}</h3>`;
+      db.series
+        .filter(s=>s.sagaId===g.id)
+        .sort((a,b)=>a.name.localeCompare(b.name))
+        .forEach(sr=>{
+          const r=document.createElement("div");
+          r.className="row";
+          r.innerHTML=`
+            <img class="cover" src="${sr.img||"https://via.placeholder.com/80"}">
+            <div>
+              <b>${sr.name}</b><br>
+              <span class="small">${sr.status} – ${sr.publisher}</span><br>
+              <span class="small">${sr.authors.join(", ")}</span><br>
+              <span class="small">${sr.img}</span>
+            </div>
+            <button class="danger">Elimina</button>
+          `;
+          r.querySelector("button").onclick=()=>{
+            db.volumes=db.volumes.filter(v=>v.series!==sr.id);
+            db.series=db.series.filter(x=>x.id!==sr.id);
+            save(); render();
+          };
+          box.appendChild(r);
+        });
+      c.appendChild(box);
+    });
+}
+
+function placeholder(c){
+  c.innerHTML="<p>Sezione in costruzione.</p>";
 }
 
 render();
 </script>
 </body>
 </html>
-

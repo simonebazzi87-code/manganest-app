@@ -44,7 +44,6 @@ let db = JSON.parse(localStorage.getItem("manganest")) || {
   sagas:[],
   series:[],
   volumes:[],
-  lastInserted:[]
 };
 
 function save(){ localStorage.setItem("manganest",JSON.stringify(db)); }
@@ -123,7 +122,70 @@ function users(c){
 /* ------------------ DATABASE ------------------ */
 function database(c){
   c.innerHTML="<h2>Database</h2>";
-  // Implementazione Database come nel passo precedente...
+
+  // NUOVA SAGA
+  const s=document.createElement("div"); s.className="card";
+  s.innerHTML="<h3>Nuova saga</h3><input id='ns'><button class='ok'>Aggiungi</button>";
+  s.querySelector("button").onclick=()=>{ const v=s.querySelector("#ns").value.trim(); if(v && !db.sagas.find(x=>x.name===v)){ db.sagas.push({id:crypto.randomUUID(),name:v}); save(); render(); } };
+  c.appendChild(s);
+
+  // NUOVA SERIE
+  const d=document.createElement("div"); d.className="card";
+  d.innerHTML=`
+    <h3>Nuova serie</h3>
+    <input id="n" placeholder="Nome">
+    <select id="sg"><option value="">Nessuna saga</option>${db.sagas.map(x=>`<option value="${x.id}">${x.name}</option>`)}</select>
+    <select id="st"><option>in corso</option><option>finita</option><option>interrotta</option></select>
+    <input id="au" placeholder="Autori (,)">
+    <input id="ed" placeholder="Editore">
+    <input id="im" placeholder="URL immagine">
+    <button class="ok">Aggiungi</button>
+  `;
+  d.querySelector("button").onclick=()=>{
+    const name=d.querySelector("#n").value.trim(); if(!name) return;
+    let sagaId=d.querySelector("#sg").value;
+    if(!sagaId){ const sg={id:crypto.randomUUID(),name}; db.sagas.push(sg); sagaId=sg.id; }
+    db.series.push({id:crypto.randomUUID(),name,sagaId,status:d.querySelector("#st").value,authors:d.querySelector("#au").value.split(",").map(x=>x.trim()).filter(Boolean),publisher:d.querySelector("#ed").value,img:d.querySelector("#im").value});
+    save(); render();
+  };
+  c.appendChild(d);
+
+  // RECAP SAGHE E SERIE
+  db.sagas.sort((a,b)=>a.name.localeCompare(b.name)).forEach(g=>{
+    const box=document.createElement("div"); box.className="card";
+    box.innerHTML=`<h3>${g.name}</h3><button class="ok">✏️ Modifica saga</button><button class="danger">Elimina saga</button>`;
+    box.querySelector(".ok").onclick=()=>{ const n=prompt("Nuovo nome saga",g.name); if(n){ g.name=n; save(); render(); } };
+    box.querySelector(".danger").onclick=()=>{ if(confirm("Eliminare la saga? Le serie resteranno senza saga.")){ db.series.forEach(s=>{ if(s.sagaId===g.id) s.sagaId=null; }); db.sagas=db.sagas.filter(x=>x.id!==g.id); save(); render(); } };
+    
+    db.series.filter(s=>s.sagaId===g.id).sort((a,b)=>a.name.localeCompare(b.name)).forEach(sr=>{
+      const r=document.createElement("div"); r.className="row";
+      r.innerHTML=`
+        <img class="cover" src="${sr.img||'https://via.placeholder.com/60x80'}">
+        <div><b>${sr.name}</b><br><span class="small">${sr.status} – ${sr.publisher}</span><br><span class="small">${sr.authors.join(", ")}</span></div>
+        <button class="ok">Sposta</button>
+        <button class="ok">✏️ Modifica</button>
+        <button class="danger">Elimina</button>
+      `;
+      r.querySelector(".row button.ok").onclick=()=>{ // SPOSTA
+        const other=db.sagas.filter(x=>x.id!==g.id); 
+        const options=other.map(x=>x.name); options.push("Crea nuova saga omonima");
+        let sel=prompt("Scegli saga: "+options.join(", "),options[0]);
+        if(sel==="Crea nuova saga omonima"){ const ng={id:crypto.randomUUID(),name:sr.name}; db.sagas.push(ng); sr.sagaId=ng.id; }
+        else{ const found=other.find(x=>x.name===sel); if(found) sr.sagaId=found.id; }
+        save(); render();
+      };
+      r.querySelectorAll(".ok")[1].onclick=()=>{ // MODIFICA SERIE
+        const n=prompt("Nuovo titolo serie",sr.name); if(n) sr.name=n;
+        const a=prompt("Autori (,) separati",sr.authors.join(",")); if(a!==null) sr.authors=a.split(",").map(x=>x.trim()).filter(Boolean);
+        const s=prompt("Stato serie (in corso/finita/interrotta)",sr.status); if(s) sr.status=s;
+        const e=prompt("Casa editrice",sr.publisher); if(e!==null) sr.publisher=e;
+        save(); render();
+      };
+      r.querySelector(".danger").onclick=()=>{ if(confirm("Eliminare la serie?")){ db.volumes=db.volumes.filter(v=>v.series!==sr.id); db.series=db.series.filter(x=>x.id!==sr.id); save(); render(); } };
+      box.appendChild(r);
+    });
+    c.appendChild(box);
+  });
 }
 
 /* ------------------ AGGIUNGI VOLUMI ------------------ */
@@ -138,54 +200,20 @@ function addVolumes(c){
     <input id="numStart" type="number" placeholder="Dal numero">
     <input id="numEnd" type="number" placeholder="Al numero (facoltativo)">
     <button class="ok">Aggiungi volumi</button>
-    <h4>Volumi inseriti ora</h4>
-    <div id="currentInserted" class="volRecap"></div>
-    <h4>Seleziona serie per vedere tutti i volumi</h4>
-    <select id="viewSeries"><option value="">--Scegli serie--</option>${db.series.map(x=>`<option value="${x.id}">${x.name}</option>`)}</select>
-    <div id="allVolumes" class="volRecap"></div>
   `;
   c.appendChild(s);
-
-  const ci=document.getElementById("currentInserted");
-  const av=document.getElementById("allVolumes");
 
   s.querySelector("button").onclick=()=>{
     const seriesId=document.getElementById("selSeries").value;
     let start=Number(document.getElementById("numStart").value);
     let end=document.getElementById("numEnd").value?Number(document.getElementById("numEnd").value):start;
     if(!seriesId||!start) return alert("Serie e numero obbligatori");
-    let added=[];
     for(let i=start;i<=end;i++){
       if(db.volumes.find(v=>v.series===seriesId && v.number===i)){ alert(`Volume ${i} già presente!`); continue; }
       db.volumes.push({series:seriesId,number:i});
-      db.lastInserted.push({series:seriesId,number:i});
-      added.push(i);
     }
-    save();
-    updateRecap(added);
+    save(); render();
   };
-
-  function updateRecap(added=[]){
-    const seriesId=document.getElementById("selSeries").value;
-    const vols=db.volumes.filter(v=>v.series===seriesId).sort((a,b)=>a.number-b.number);
-    const sr=db.series.find(x=>x.id===seriesId);
-    const saga=db.sagas.find(sg=>sg.id===sr.sagaId)?.name || "Nessuna saga";
-    ci.innerHTML=vols.map(v=>{
-      let h=added.includes(v.number)?`<span class="highlight">${v.number}</span>`:v.number;
-      return `<span>${saga} / ${sr.name} - ${h}</span>`;
-    }).join(" , ");
-  }
-
-  document.getElementById("selSeries").onchange=()=>updateRecap();
-
-  document.getElementById("viewSeries").onchange=()=>{
-    const seriesId=document.getElementById("viewSeries").value;
-    if(!seriesId){ av.innerHTML=""; return; }
-    const vols=db.volumes.filter(v=>v.series===seriesId).sort((a,b)=>a.number-b.number);
-    av.innerHTML=vols.map(v=>v.number).join(" , ");
-  };
-
-  updateRecap();
 }
 
 render();

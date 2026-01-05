@@ -22,6 +22,7 @@ button{cursor:pointer;}
 .volRecap{margin-top:8px;padding:8px;background:#eee;border-radius:4px;}
 .volRecap div{margin-bottom:4px;}
 .highlight{background:yellow;padding:2px 4px;border-radius:3px;}
+.checkboxOther{border-radius:4px;padding:2px 6px;color:#fff;margin-left:4px;}
 </style>
 </head>
 <body>
@@ -44,6 +45,7 @@ let db = JSON.parse(localStorage.getItem("manganest")) || {
   sagas:[],
   series:[],
   volumes:[],
+  reading:[]
 };
 
 function save(){ localStorage.setItem("manganest",JSON.stringify(db)); }
@@ -66,7 +68,8 @@ function render(){
   [
     ["Database",database],
     ["Aggiungi numeri",addVolumes],
-    ["Utenti",users]
+    ["Utenti",users],
+    ["Lettura",reading]
   ].forEach(([t,f])=>{
     const b=document.createElement("button"); b.textContent=t; b.onclick=()=>f(app); menu.appendChild(b);
   });
@@ -86,6 +89,7 @@ function home(){
   });
 }
 
+/* ------------------ UTENTI ------------------ */
 function users(c){
   c.innerHTML="<h2>Utenti</h2>";
   db.users.forEach(u=>{
@@ -153,7 +157,7 @@ function database(c){
   // RECAP SAGHE E SERIE
   db.sagas.sort((a,b)=>a.name.localeCompare(b.name)).forEach(g=>{
     const box=document.createElement("div"); box.className="card";
-    box.innerHTML=`<h3>${g.name}</h3><button class="ok">✏️ Modifica saga</button><button class="danger">Elimina saga</button>`;
+    box.innerHTML=`<h3>${g.name}</h3><button class="ok">Modifica saga</button><button class="danger">Elimina saga</button>`;
     box.querySelector(".ok").onclick=()=>{ const n=prompt("Nuovo nome saga",g.name); if(n){ g.name=n; save(); render(); } };
     box.querySelector(".danger").onclick=()=>{ if(confirm("Eliminare la saga? Le serie resteranno senza saga.")){ db.series.forEach(s=>{ if(s.sagaId===g.id) s.sagaId=null; }); db.sagas=db.sagas.filter(x=>x.id!==g.id); save(); render(); } };
     
@@ -163,10 +167,10 @@ function database(c){
         <img class="cover" src="${sr.img||'https://via.placeholder.com/60x80'}">
         <div><b>${sr.name}</b><br><span class="small">${sr.status} – ${sr.publisher}</span><br><span class="small">${sr.authors.join(", ")}</span></div>
         <button class="ok">Sposta</button>
-        <button class="ok">✏️ Modifica</button>
+        <button class="ok">Modifica</button>
         <button class="danger">Elimina</button>
       `;
-      r.querySelector(".row button.ok").onclick=()=>{ // SPOSTA
+      r.querySelectorAll(".ok")[0].onclick=()=>{ // SPOSTA
         const other=db.sagas.filter(x=>x.id!==g.id); 
         const options=other.map(x=>x.name); options.push("Crea nuova saga omonima");
         let sel=prompt("Scegli saga: "+options.join(", "),options[0]);
@@ -259,8 +263,65 @@ function addVolumes(c){
   };
 }
 
+/* ------------------ LETTURA ------------------ */
+function reading(c){
+  c.innerHTML="<h2>Lettura</h2>";
+  if(db.series.length===0){ c.innerHTML+="<p>Nessuna serie nel database</p>"; return; }
+
+  const div=document.createElement("div"); div.className="card";
+  div.innerHTML=`
+    <label>Seleziona serie</label>
+    <select id="readSeries"><option value="">--Scegli serie--</option>${db.series.map(x=>`<option value="${x.id}">${x.name}</option>`)}</select>
+    <div id="readVolumes" class="volRecap"></div>
+    <button id="markAll" class="ok">Segna tutti come letti</button>
+  `;
+  c.appendChild(div);
+
+  const readDiv=document.getElementById("readVolumes");
+  const seriesSelect=document.getElementById("readSeries");
+
+  function renderRead(seriesId){
+    const sr=db.series.find(x=>x.id===seriesId);
+    if(!sr){ readDiv.innerHTML=""; return; }
+    readDiv.innerHTML="";
+    const vols=db.volumes.filter(v=>v.series===seriesId).sort((a,b)=>a.number-b.number);
+    vols.forEach(v=>{
+      const row=document.createElement("div");
+      row.style.display="flex"; row.style.alignItems="center"; row.style.gap="8px";
+      const chk=document.createElement("input"); chk.type="checkbox";
+      chk.checked=db.reading.find(r=>r.user===db.currentUser && r.series===seriesId && r.number===v.number) ? true:false;
+      chk.onchange=()=>{ 
+        if(chk.checked) db.reading.push({user:db.currentUser,series:seriesId,number:v.number});
+        else db.reading=db.reading.filter(r=>!(r.user===db.currentUser && r.series===seriesId && r.number===v.number));
+        save(); 
+        renderRead(seriesId);
+      };
+      row.appendChild(chk);
+      row.appendChild(document.createTextNode("Volume "+v.number));
+
+      // altri utenti
+      db.users.filter(u=>u.id!==db.currentUser).forEach(u=>{
+        if(db.reading.find(r=>r.user===u.id && r.series===seriesId && r.number===v.number)){
+          const sp=document.createElement("span"); sp.className="checkboxOther"; sp.style.background=u.color; sp.textContent=u.name; row.appendChild(sp);
+        }
+      });
+
+      readDiv.appendChild(row);
+    });
+  }
+
+  seriesSelect.onchange=()=>renderRead(seriesSelect.value);
+  document.getElementById("markAll").onclick=()=>{
+    const seriesId=seriesSelect.value; if(!seriesId) return;
+    db.volumes.filter(v=>v.series===seriesId).forEach(v=>{
+      if(!db.reading.find(r=>r.user===db.currentUser && r.series===seriesId && r.number===v.number))
+        db.reading.push({user:db.currentUser,series:seriesId,number:v.number});
+    });
+    save(); renderRead(seriesId);
+  };
+}
+
 render();
 </script>
-
 </body>
 </html>

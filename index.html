@@ -21,8 +21,6 @@ input,select{width:100%;padding:6px;margin:4px 0;}
 button{cursor:pointer;}
 .volRecap{margin-top:8px;padding:8px;background:#eee;border-radius:4px;}
 .volRecap div{margin-bottom:4px;}
-.highlight{background:yellow;padding:2px 4px;border-radius:3px;}
-.checkboxOther{border-radius:4px;padding:2px 6px;color:#fff;margin-left:4px;}
 </style>
 </head>
 <body>
@@ -170,21 +168,8 @@ function database(c){
         <button class="ok">Modifica</button>
         <button class="danger">Elimina</button>
       `;
-      r.querySelectorAll(".ok")[0].onclick=()=>{ // SPOSTA
-        const other=db.sagas.filter(x=>x.id!==g.id); 
-        const options=other.map(x=>x.name); options.push("Crea nuova saga omonima");
-        let sel=prompt("Scegli saga: "+options.join(", "),options[0]);
-        if(sel==="Crea nuova saga omonima"){ const ng={id:crypto.randomUUID(),name:sr.name}; db.sagas.push(ng); sr.sagaId=ng.id; }
-        else{ const found=other.find(x=>x.name===sel); if(found) sr.sagaId=found.id; }
-        save(); render();
-      };
-      r.querySelectorAll(".ok")[1].onclick=()=>{ // MODIFICA SERIE
-        const n=prompt("Nuovo titolo serie",sr.name); if(n) sr.name=n;
-        const a=prompt("Autori (,) separati",sr.authors.join(",")); if(a!==null) sr.authors=a.split(",").map(x=>x.trim()).filter(Boolean);
-        const s=prompt("Stato serie (in corso/finita/interrotta)",sr.status); if(s) sr.status=s;
-        const e=prompt("Casa editrice",sr.publisher); if(e!==null) sr.publisher=e;
-        save(); render();
-      };
+      r.querySelectorAll(".ok")[0].onclick=()=>{ const ng={id:crypto.randomUUID(),name:sr.name}; db.sagas.push(ng); sr.sagaId=ng.id; save(); render(); };
+      r.querySelectorAll(".ok")[1].onclick=()=>{ const n=prompt("Nuovo titolo serie",sr.name); if(n) sr.name=n; save(); render(); };
       r.querySelector(".danger").onclick=()=>{ if(confirm("Eliminare la serie?")){ db.volumes=db.volumes.filter(v=>v.series!==sr.id); db.series=db.series.filter(x=>x.id!==sr.id); save(); render(); } };
       box.appendChild(r);
     });
@@ -281,16 +266,6 @@ function reading(c){
 
       const label=document.createElement("span"); label.textContent="Volume "+v.number;
       row.appendChild(label);
-
-      db.users.filter(u=>u.id!==db.currentUser).forEach(u=>{
-        if(db.reading.find(r=>r.user===u.id && r.series===seriesId && r.number===v.number)){
-          const sp=document.createElement("span"); 
-          sp.className="checkboxOther"; 
-          sp.style.background=u.color; 
-          sp.textContent=u.name; 
-          row.appendChild(sp);
-        }
-      });
 
       readDiv.appendChild(row);
     });

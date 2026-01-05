@@ -18,6 +18,9 @@ main{padding:12px;}
 .ok{background:var(--main);color:#fff;}
 .danger{background:#e74c3c;color:#fff;}
 input,select{width:100%;padding:6px;margin:4px 0;}
+button{cursor:pointer;}
+.volRecap{margin-top:8px;padding:8px;background:#eee;border-radius:4px;}
+.volRecap div{margin-bottom:4px;}
 </style>
 </head>
 <body>
@@ -84,12 +87,25 @@ function home(){
 }
 
 function users(c){
-  c.innerHTML="<h2>Aggiungi utente</h2>";
-  // elenco utenti
+  c.innerHTML="<h2>Aggiungi/modifica utenti</h2>";
+  // elenco utenti con modifica
   db.users.forEach(u=>{
     const d=document.createElement("div");
     d.className="card";
-    d.innerHTML=`<b>${u.name}</b> <span style="background:${u.color};color:#fff;padding:2px 6px;border-radius:4px;">&nbsp;</span>`;
+    d.innerHTML=`
+      <input type="text" value="${u.name}" style="width:60%">
+      <input type="color" value="${u.color}" style="width:20%">
+      <button class="ok">Salva</button>
+      <button class="danger">Elimina</button>
+    `;
+    d.querySelector(".ok").onclick=()=>{
+      u.name=d.querySelector("input[type=text]").value.trim();
+      u.color=d.querySelector("input[type=color]").value;
+      save(); render();
+    };
+    d.querySelector(".danger").onclick=()=>{
+      if(confirm("Eliminare utente?")){ db.users=db.users.filter(x=>x.id!==u.id); save(); render(); }
+    };
     c.appendChild(d);
   });
   // form nuovo
@@ -105,6 +121,7 @@ function users(c){
   c.appendChild(d);
 }
 
+/* ------------------ DATABASE ------------------ */
 function database(c){
   c.innerHTML="<h2>Database</h2>";
 
@@ -135,7 +152,7 @@ function database(c){
   };
   c.appendChild(d);
 
-  // RECAP SAGHE
+  // RECAP SAGHE E SERIE
   db.sagas.sort((a,b)=>a.name.localeCompare(b.name)).forEach(g=>{
     const box=document.createElement("div"); box.className="card";
     box.innerHTML=`<h3>${g.name}</h3><button class="ok">✏️ Modifica saga</button><button class="danger">Elimina saga</button>`;
@@ -151,8 +168,7 @@ function database(c){
         <button class="ok">✏️ Modifica</button>
         <button class="danger">Elimina</button>
       `;
-      // SPOSTA
-      r.querySelector(".row button.ok").onclick=()=>{
+      r.querySelector(".row button.ok").onclick=()=>{ // SPOSTA
         const other=db.sagas.filter(x=>x.id!==g.id); 
         const options=other.map(x=>x.name); options.push("Crea nuova saga omonima");
         let sel=prompt("Scegli saga: "+options.join(", "),options[0]);
@@ -160,15 +176,13 @@ function database(c){
         else{ const found=other.find(x=>x.name===sel); if(found) sr.sagaId=found.id; }
         save(); render();
       };
-      // MODIFICA SERIE
-      r.querySelectorAll(".ok")[1].onclick=()=>{
+      r.querySelectorAll(".ok")[1].onclick=()=>{ // MODIFICA SERIE
         const n=prompt("Nuovo titolo serie",sr.name); if(n) sr.name=n;
         const a=prompt("Autori (,) separati",sr.authors.join(",")); if(a!==null) sr.authors=a.split(",").map(x=>x.trim()).filter(Boolean);
         const s=prompt("Stato serie (in corso/finita/interrotta)",sr.status); if(s) sr.status=s;
         const e=prompt("Casa editrice",sr.publisher); if(e!==null) sr.publisher=e;
         save(); render();
       };
-      // ELIMINA
       r.querySelector(".danger").onclick=()=>{ if(confirm("Eliminare la serie?")){ db.volumes=db.volumes.filter(v=>v.series!==sr.id); db.series=db.series.filter(x=>x.id!==sr.id); save(); render(); } };
       box.appendChild(r);
     });
@@ -188,29 +202,12 @@ function addVolumes(c){
     <input id="numStart" type="number" placeholder="Dal numero">
     <input id="numEnd" type="number" placeholder="Al numero (facoltativo)">
     <button class="ok">Aggiungi volumi</button>
-    <h4>Ultimi 10 volumi inseriti</h4>
-    <div id="lastVolumes"></div>
-    <h4>Cerca serie</h4>
-    <input id="searchSeries" placeholder="Nome serie">
-    <div id="foundVolumes"></div>
+    <h4>Volumi inseriti ora</h4>
+    <div id="currentInserted" class="volRecap"></div>
   `;
   c.appendChild(s);
 
-  const lv=document.getElementById("lastVolumes");
-  const fv=document.getElementById("foundVolumes");
-
-  function updateLast(){ lv.innerHTML=db.lastInserted.slice(-10).reverse().map(v=>{
-    const sr=db.series.find(s=>s.id===v.series); return `<div>${sr?.name} – vol ${v.number}</div>`;
-  }).join(""); }
-
-  function searchVolumes(){
-    const text=document.getElementById("searchSeries").value.toLowerCase();
-    const f=db.series.filter(s=>s.name.toLowerCase().includes(text));
-    fv.innerHTML=f.map(s=>{
-      const vols=db.volumes.filter(v=>v.series===s.id).map(v=>v.number).sort((a,b)=>a-b).join(", ");
-      return `<div><b>${s.name}</b>: ${vols}</div>`;
-    }).join("");
-  }
+  const ci=document.getElementById("currentInserted");
 
   s.querySelector("button").onclick=()=>{
     const seriesId=document.getElementById("selSeries").value;
@@ -222,11 +219,20 @@ function addVolumes(c){
       db.volumes.push({series:seriesId,number:i});
       db.lastInserted.push({series:seriesId,number:i});
     }
-    save(); updateLast(); searchVolumes();
+    save();
+    updateRecap();
   };
 
-  document.getElementById("searchSeries").oninput=searchVolumes;
-  updateLast(); searchVolumes();
+  function updateRecap(){
+    const seriesId=document.getElementById("selSeries").value;
+    const vols=db.volumes.filter(v=>v.series===seriesId).sort((a,b)=>a.number-b.number);
+    ci.innerHTML=vols.map(v=>{
+      return `<div>Vol ${v.number} <button class="danger" onclick="db.volumes=db.volumes.filter(x=>!(x.series==='${v.series}' && x.number===${v.number})); save(); updateRecap(); render();">Elimina</button></div>`;
+    }).join("");
+  }
+
+  document.getElementById("selSeries").onchange=updateRecap;
+  updateRecap();
 }
 
 /* ------------------ AVVIO ------------------ */

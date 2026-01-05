@@ -4,7 +4,6 @@
 <meta charset="UTF-8">
 <title>MangaNest</title>
 <meta name="viewport" content="width=device-width, initial-scale=1">
-
 <style>
 :root{
   --main:#6c5ce7;
@@ -65,7 +64,6 @@ input,select{
 }
 </style>
 </head>
-
 <body>
 
 <header>
@@ -89,11 +87,9 @@ let db = JSON.parse(localStorage.getItem("manganest")) || {
   volumes:[]
 };
 
-function save(){
-  localStorage.setItem("manganest",JSON.stringify(db));
-}
+function save(){ localStorage.setItem("manganest",JSON.stringify(db)); }
 
-/* ------------------ RENDER ROOT ------------------ */
+/* ------------------ RENDER ------------------ */
 const app=document.getElementById("app");
 const menu=document.getElementById("menu");
 const who=document.getElementById("who");
@@ -109,10 +105,7 @@ function render(){
     : "";
 
   menu.innerHTML="";
-  if(!db.currentUser){
-    home();
-    return;
-  }
+  if(!db.currentUser){ home(); return; }
 
   [
     ["Database",database],
@@ -146,6 +139,16 @@ function home(){
 /* ------------------ UTENTI ------------------ */
 function users(c){
   c.innerHTML="<h2>Aggiungi utente</h2>";
+
+  // Mostra utenti esistenti
+  db.users.forEach(u=>{
+    const d=document.createElement("div");
+    d.className="card";
+    d.innerHTML=`<b>${u.name}</b> <span style="background:${u.color};color:#fff;padding:2px 6px;border-radius:4px;">&nbsp;</span>`;
+    c.appendChild(d);
+  });
+
+  // Form nuovo utente
   const d=document.createElement("div");
   d.className="card";
   d.innerHTML=`
@@ -257,23 +260,41 @@ function database(c){
             <span class="small">${sr.authors.join(", ")}</span>
           </div>
           <button class="ok">Sposta</button>
+          <button class="ok">✏️ Modifica</button>
           <button class="danger">Elimina</button>
         `;
 
-        r.querySelector(".ok").onclick=()=>{
-          if(confirm("Creare nuova saga con nome serie?")){
+        // SPOSTA SERIE
+        r.querySelector(".row button.ok").onclick=()=>{
+          const other=db.sagas.filter(x=>x.id!==g.id);
+          const options=other.map(x=>x.name);
+          options.push("Crea nuova saga omonima");
+          let sel=prompt("Scegli saga: "+options.join(", "),options[0]);
+          if(sel==="Crea nuova saga omonima"){
             const ng={id:crypto.randomUUID(),name:sr.name};
             db.sagas.push(ng);
             sr.sagaId=ng.id;
           }else{
-            const other=db.sagas.filter(x=>x.id!==g.id);
-            const name=prompt("Nome saga esistente:",other.map(x=>x.name).join(", "));
-            const found=other.find(x=>x.name===name);
+            const found=other.find(x=>x.name===sel);
             if(found) sr.sagaId=found.id;
           }
           save(); render();
         };
 
+        // MODIFICA SERIE
+        r.querySelectorAll(".ok")[1].onclick=()=>{
+          const n=prompt("Nuovo titolo serie",sr.name);
+          if(n) sr.name=n;
+          const a=prompt("Autori (,) separati",sr.authors.join(", "));
+          if(a!==null) sr.authors=a.split(",").map(x=>x.trim()).filter(Boolean);
+          const s=prompt("Stato serie (in corso/finita/interrotta)",sr.status);
+          if(s) sr.status=s;
+          const e=prompt("Casa editrice",sr.publisher);
+          if(e!==null) sr.publisher=e;
+          save(); render();
+        };
+
+        // ELIMINA SERIE
         r.querySelector(".danger").onclick=()=>{
           if(confirm("Eliminare la serie?")){
             db.volumes=db.volumes.filter(v=>v.series!==sr.id);

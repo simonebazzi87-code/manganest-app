@@ -282,7 +282,6 @@ function reading(c){
       const label=document.createElement("span"); label.textContent="Volume "+v.number;
       row.appendChild(label);
 
-      // mostra altri utenti
       db.users.filter(u=>u.id!==db.currentUser).forEach(u=>{
         if(db.reading.find(r=>r.user===u.id && r.series===seriesId && r.number===v.number)){
           const sp=document.createElement("span"); 
@@ -307,7 +306,6 @@ function reading(c){
     save(); renderRead(seriesId);
   };
 }
-
 
 render();
 </script>

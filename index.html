@@ -3,126 +3,173 @@
 <head>
 <meta charset="UTF-8">
 <title>MangaNest</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+
 <style>
-body { font-family: system-ui; margin:0; background:#f4f4f4 }
-header { background:#222; color:white; padding:10px; display:flex; gap:6px; flex-wrap:wrap }
-header button { border:none; padding:6px 10px; border-radius:4px; cursor:pointer }
-header button.active { background:#555 }
-section { padding:15px }
-.card { background:white; padding:12px; margin-bottom:12px; border-radius:6px; border:1px solid #ccc }
-.row { display:flex; gap:10px; align-items:center; flex-wrap:wrap }
-img.cover { height:80px; border-radius:4px }
-.small { font-size:0.85em; color:#555 }
-.ok { background:#2e7d32; color:white }
-.danger { background:#c62828; color:white }
-input, select { padding:4px }
+:root{
+  --main:#6c5ce7;
+  --bg:#f5f6fa;
+}
+body{
+  margin:0;
+  font-family:system-ui, sans-serif;
+  background:var(--bg);
+}
+header{
+  background:var(--main);
+  color:#fff;
+  padding:12px;
+  text-align:center;
+}
+nav{
+  display:flex;
+  gap:8px;
+  padding:10px;
+  background:#fff;
+  flex-wrap:wrap;
+}
+nav button{
+  border:none;
+  padding:8px 12px;
+  border-radius:6px;
+  cursor:pointer;
+}
+main{ padding:12px; }
+
+.card{
+  background:#fff;
+  border-radius:8px;
+  padding:12px;
+  margin-bottom:12px;
+}
+.row{
+  display:flex;
+  gap:10px;
+  align-items:center;
+  margin-top:8px;
+}
+.cover{
+  width:60px;
+  height:80px;
+  object-fit:cover;
+  border-radius:4px;
+  background:#ccc;
+}
+.small{ font-size:12px; color:#555; }
+.ok{ background:var(--main); color:#fff; }
+.danger{ background:#e74c3c; color:#fff; }
+input,select{
+  width:100%;
+  padding:6px;
+  margin:4px 0;
+}
 </style>
 </head>
+
 <body>
 
-<header id="menu"></header>
-<section id="content"></section>
+<header>
+  <h1>MangaNest</h1>
+  <div id="who"></div>
+</header>
+
+<nav id="menu"></nav>
+<main id="app"></main>
 
 <script>
-const DBKEY="manganest-db";
-
-let db=JSON.parse(localStorage.getItem(DBKEY))||{
-  currentUser:null,
+/* ------------------ DATABASE ------------------ */
+let db = JSON.parse(localStorage.getItem("manganest")) || {
   users:[
-    {id:"simone",name:"Simone",color:"#4CAF50",avatar:""},
-    {id:"andrea",name:"Andrea",color:"#FFC107",avatar:""}
+    {id:"simone",name:"Simone",color:"#6c5ce7"},
+    {id:"andrea",name:"Andrea",color:"#e84393"}
   ],
+  currentUser:null,
   sagas:[],
   series:[],
   volumes:[]
 };
 
-function save(){localStorage.setItem(DBKEY,JSON.stringify(db));}
-
-const sections=[
-  "Home","Aggiungi utente","Database",
-  "Aggiungi numeri","Lettura",
-  "Riordina volumi","Edicola","Backup"
-];
-
-let current="Home";
-
-/* MENU */
-function menu(){
-  const m=document.getElementById("menu");
-  m.innerHTML="";
-  if(!db.currentUser) return;
-  sections.forEach(s=>{
-    const b=document.createElement("button");
-    b.textContent=s;
-    if(current===s) b.classList.add("active");
-    b.onclick=()=>{current=s;render();};
-    m.appendChild(b);
-  });
+function save(){
+  localStorage.setItem("manganest",JSON.stringify(db));
 }
+
+/* ------------------ RENDER ROOT ------------------ */
+const app=document.getElementById("app");
+const menu=document.getElementById("menu");
+const who=document.getElementById("who");
 
 function render(){
-  menu();
-  const c=document.getElementById("content");
-  c.innerHTML="";
-  if(!db.currentUser && current!=="Home") current="Home";
-  ({
-    Home:home,
-    "Aggiungi utente":users,
-    Database:database,
-    "Aggiungi numeri":placeholder,
-    Lettura:placeholder,
-    "Riordina volumi":placeholder,
-    Edicola:placeholder,
-    Backup:placeholder
-  })[current](c);
+  document.documentElement.style.setProperty(
+    "--main",
+    db.users.find(u=>u.id===db.currentUser)?.color || "#6c5ce7"
+  );
+
+  who.textContent=db.currentUser
+    ? "Utente: "+db.users.find(u=>u.id===db.currentUser).name
+    : "";
+
+  menu.innerHTML="";
+  if(!db.currentUser){
+    home();
+    return;
+  }
+
+  [
+    ["Database",database],
+    ["Aggiungi utente",users]
+  ].forEach(([t,f])=>{
+    const b=document.createElement("button");
+    b.textContent=t;
+    b.onclick=()=>f(app);
+    menu.appendChild(b);
+  });
+
+  database(app);
 }
 
-/* HOME */
-function home(c){
-  c.innerHTML="<h2>Chi sta usando MangaNest?</h2>";
+/* ------------------ HOME ------------------ */
+function home(){
+  app.innerHTML="<h2>Scegli utente</h2>";
   db.users.forEach(u=>{
-    const d=document.createElement("div");
-    d.className="card row";
-    d.innerHTML=`
-      <img src="${u.avatar||"https://via.placeholder.com/80"}" width="80">
-      <b>${u.name}</b>
-      <button class="ok">Entra</button>
-    `;
-    d.querySelector("button").onclick=()=>{
-      db.currentUser=u.id; save(); current="Database"; render();
+    const b=document.createElement("button");
+    b.textContent=u.name;
+    b.style.background=u.color;
+    b.style.color="#fff";
+    b.onclick=()=>{
+      db.currentUser=u.id;
+      save(); render();
     };
-    c.appendChild(d);
+    app.appendChild(b);
   });
 }
 
-/* UTENTI */
+/* ------------------ UTENTI ------------------ */
 function users(c){
-  c.innerHTML="<h2>Aggiungi / modifica utenti</h2>";
-  db.users.forEach(u=>{
-    const d=document.createElement("div");
-    d.className="card row";
-    d.innerHTML=`
-      <input value="${u.name}">
-      <input type="color" value="${u.color}">
-      <input placeholder="Avatar URL" value="${u.avatar}">
-    `;
-    const [n,col,av]=d.children;
-    n.onchange=()=>{u.name=n.value;save();};
-    col.onchange=()=>{u.color=col.value;save();};
-    av.onchange=()=>{u.avatar=av.value;save();};
-    c.appendChild(d);
-  });
+  c.innerHTML="<h2>Aggiungi utente</h2>";
+  const d=document.createElement("div");
+  d.className="card";
+  d.innerHTML=`
+    <input id="n" placeholder="Nome">
+    <input id="c" type="color">
+    <button class="ok">Aggiungi</button>
+  `;
+  d.querySelector("button").onclick=()=>{
+    const n=d.querySelector("#n").value.trim();
+    if(!n) return;
+    db.users.push({id:crypto.randomUUID(),name:n,color:d.querySelector("#c").value});
+    save(); render();
+  };
+  c.appendChild(d);
 }
 
-/* DATABASE */
+/* ------------------ DATABASE ------------------ */
 function database(c){
   c.innerHTML="<h2>Database</h2>";
 
-  /* SAGHE */
+  /* NUOVA SAGA */
   const s=document.createElement("div");
   s.className="card";
-  s.innerHTML="<h3>Saghe</h3><input id='ns'><button class='ok'>Aggiungi</button>";
+  s.innerHTML="<h3>Nuova saga</h3><input id='ns'><button class='ok'>Aggiungi</button>";
   s.querySelector("button").onclick=()=>{
     const v=s.querySelector("#ns").value.trim();
     if(v && !db.sagas.find(x=>x.name===v)){
@@ -130,24 +177,9 @@ function database(c){
       save(); render();
     }
   };
-  db.sagas.sort((a,b)=>a.name.localeCompare(b.name)).forEach(g=>{
-    const r=document.createElement("div");
-    r.className="row";
-    r.innerHTML=`
-      <input value="${g.name}">
-      <button class="danger">Elimina</button>
-    `;
-    r.querySelector("input").onchange=e=>{g.name=e.target.value;save();};
-    r.querySelector("button").onclick=()=>{
-      db.series.forEach(s=>{ if(s.sagaId===g.id) s.sagaId=null; });
-      db.sagas=db.sagas.filter(x=>x.id!==g.id);
-      save(); render();
-    };
-    s.appendChild(r);
-  });
   c.appendChild(s);
 
-  /* SERIE */
+  /* NUOVA SERIE */
   const d=document.createElement("div");
   d.className="card";
   d.innerHTML=`
@@ -189,45 +221,77 @@ function database(c){
   };
   c.appendChild(d);
 
-  /* LISTA SERIE */
-  db.sagas
-    .sort((a,b)=>a.name.localeCompare(b.name))
-    .forEach(g=>{
-      const box=document.createElement("div");
-      box.className="card";
-      box.innerHTML=`<h3>${g.name}</h3>`;
-      db.series
-        .filter(s=>s.sagaId===g.id)
-        .sort((a,b)=>a.name.localeCompare(b.name))
-        .forEach(sr=>{
-          const r=document.createElement("div");
-          r.className="row";
-          r.innerHTML=`
-            <img class="cover" src="${sr.img||"https://via.placeholder.com/80"}">
-            <div>
-              <b>${sr.name}</b><br>
-              <span class="small">${sr.status} – ${sr.publisher}</span><br>
-              <span class="small">${sr.authors.join(", ")}</span><br>
-              <span class="small">${sr.img}</span>
-            </div>
-            <button class="danger">Elimina</button>
-          `;
-          r.querySelector("button").onclick=()=>{
+  /* RECAP SAGHE */
+  db.sagas.sort((a,b)=>a.name.localeCompare(b.name)).forEach(g=>{
+    const box=document.createElement("div");
+    box.className="card";
+    box.innerHTML=`
+      <h3>${g.name}</h3>
+      <button class="ok">✏️ Modifica saga</button>
+      <button class="danger">Elimina saga</button>
+    `;
+
+    box.querySelector(".ok").onclick=()=>{
+      const n=prompt("Nuovo nome saga",g.name);
+      if(n){ g.name=n; save(); render(); }
+    };
+
+    box.querySelector(".danger").onclick=()=>{
+      if(confirm("Eliminare la saga? Le serie resteranno senza saga.")){
+        db.series.forEach(s=>{ if(s.sagaId===g.id) s.sagaId=null; });
+        db.sagas=db.sagas.filter(x=>x.id!==g.id);
+        save(); render();
+      }
+    };
+
+    db.series.filter(s=>s.sagaId===g.id)
+      .sort((a,b)=>a.name.localeCompare(b.name))
+      .forEach(sr=>{
+        const r=document.createElement("div");
+        r.className="row";
+        r.innerHTML=`
+          <img class="cover" src="${sr.img||"https://via.placeholder.com/60x80"}">
+          <div>
+            <b>${sr.name}</b><br>
+            <span class="small">${sr.status} – ${sr.publisher}</span><br>
+            <span class="small">${sr.authors.join(", ")}</span>
+          </div>
+          <button class="ok">Sposta</button>
+          <button class="danger">Elimina</button>
+        `;
+
+        r.querySelector(".ok").onclick=()=>{
+          if(confirm("Creare nuova saga con nome serie?")){
+            const ng={id:crypto.randomUUID(),name:sr.name};
+            db.sagas.push(ng);
+            sr.sagaId=ng.id;
+          }else{
+            const other=db.sagas.filter(x=>x.id!==g.id);
+            const name=prompt("Nome saga esistente:",other.map(x=>x.name).join(", "));
+            const found=other.find(x=>x.name===name);
+            if(found) sr.sagaId=found.id;
+          }
+          save(); render();
+        };
+
+        r.querySelector(".danger").onclick=()=>{
+          if(confirm("Eliminare la serie?")){
             db.volumes=db.volumes.filter(v=>v.series!==sr.id);
             db.series=db.series.filter(x=>x.id!==sr.id);
             save(); render();
-          };
-          box.appendChild(r);
-        });
-      c.appendChild(box);
-    });
+          }
+        };
+
+        box.appendChild(r);
+      });
+
+    c.appendChild(box);
+  });
 }
 
-function placeholder(c){
-  c.innerHTML="<p>Sezione in costruzione.</p>";
-}
-
+/* ------------------ AVVIO ------------------ */
 render();
 </script>
+
 </body>
 </html>

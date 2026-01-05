@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<title>MangaNest</title>
+<style>
+body { font-family: Arial, sans-serif; background: #f0f0f0; margin:0; padding:0;}
+header { background: #333; color: white; padding: 10px; display:flex; gap:10px; flex-wrap:wrap;}
+header button { padding: 5px 10px; border:none; border-radius:4px; cursor:pointer; color:white;}
+header button.active { background: #555; }
+section { padding: 15px; }
+.series-box, .saga-box, .volume-box { background:white; padding:10px; margin-bottom:10px; border-radius:5px; border:1px solid #ccc; }
+button.red { background:red; color:white;}
+button.green { background:green; color:white;}
+button.yellow { background:goldenrod; color:white;}
+</style>
+</head>
+<body>
+
+<header id="menu"></header>
+<section id="content"></section>
+
+<script>
+let currentReader = null;
+let currentSection = "Menu";
+
+const readers = [
+  {name:"Simone", color:"green"},
+  {name:"Andrea", color:"yellow"}
+];
+
+const sagas = [];
+const series = [];
+
+// ------- FUNZIONI MENU -------
+function renderMenu() {
+  const menuDiv = document.getElementById('menu');
+  menuDiv.innerHTML = '';
+  const sections = ["Menu","Lettura","Edicola","Database","Saghe","Backup CSV"];
+  sections.forEach(sec => {
+    const btn = document.createElement('button');
+    btn.textContent = sec;
+    btn.className = (currentSection===sec) ? 'active' : '';
+    btn.onclick = () => { currentSection=sec; renderContent(); renderMenu(); };
+    menuDiv.appendChild(btn);
+  });
+}
+
+// ------- FUNZIONI SEZIONI -------
+function renderContent() {
+  const content = document.getElementById('content');
+  content.innerHTML = '';
+
+  // Selezione reader all'avvio
+  if(!currentReader){
+    const h1 = document.createElement('h1'); h1.textContent="Chi sta usando l'app?"; h1.style.textAlign="center";
+    content.appendChild(h1);
+    readers.forEach(r=>{
+      const btn = document.createElement('button');
+      btn.textContent = r.name; 
+      btn.style.background=r.color; 
+      btn.style.color="white";
+      btn.style.margin="5px"; btn.style.padding="10px"; btn.style.border="none"; btn.style.borderRadius="4px";
+      btn.onclick = ()=>{ currentReader=r.name; renderContent(); renderMenu(); };
+      content.appendChild(btn);
+    });
+    return;
+  }
+
+  switch(currentSection){
+    case "Menu":
+      const h = document.createElement('h2'); h.textContent="Benvenuto "+currentReader; content.appendChild(h);
+      const p = document.createElement('p'); p.textContent="Seleziona una sezione dal menu in alto."; content.appendChild(p);
+      break;
+
+    case "Lettura":
+      renderLettura(content);
+      break;
+    case "Edicola":
+      renderEdicola(content);
+      break;
+    case "Database":
+      renderDatabase(content);
+      break;
+    case "Saghe":
+      renderSaghe(content);
+      break;
+    case "Backup CSV":
+      renderBackup(content);
+      break;
+  }
+}
+
+// ------- LETTURA -------
+function renderLettura(container){
+  const h = document.createElement('h2'); h.textContent="📖 Lettura"; container.appendChild(h);
+  if(series.length===0){ const p=document.createElement('p'); p.textContent="Nessuna serie"; container.appendChild(p); return;}
+  series.forEach((s,sIndex)=>{
+    const div = document.createElement('div'); div.className='series-box';
+    const title = document.createElement('div'); title.style.fontWeight='bold'; title.textContent=s.name+" ("+s.status+")";
+    div.appendChild(title);
+
+    s.volumes.forEach((v,vIndex)=>{
+      const volDiv = document.createElement('div'); volDiv.className='volume-box'; volDiv.style.display='flex'; volDiv.style.justifyContent='space-between'; volDiv.style.alignItems='center';
+
+      const label = document.createElement('label');
+      const checkbox = document.createElement('input'); checkbox.type='checkbox';
+      checkbox.checked = v.read[currentReader] || false;
+      checkbox.onchange = ()=>{ v.read[currentReader] = checkbox.checked; };
+      label.appendChild(checkbox);
+      label.appendChild(document.createTextNode(" Volume "+v.number + (v.isLast?" (Ultimo)":"")));
+      volDiv.appendChild(label);
+
+      const btns = document.createElement('div');
+      const delBtn = document.createElement('button'); delBtn.textContent='Elimina'; delBtn.className='red'; delBtn.onclick = ()=>{
+        if(confirm("Eliminare volume?")){ s.volumes.splice(vIndex,1); renderContent(); }
+      };
+      const lastBtn = document.createElement('button'); lastBtn.textContent='Ultimo'; lastBtn.className='yellow'; lastBtn.onclick = ()=>{
+        s.volumes.forEach(vv=>vv.isLast=false); s.volumes[vIndex].isLast=true; s.status="finita"; renderContent();
+      };
+      btns.appendChild(delBtn); btns.appendChild(lastBtn);
+      btns.style.display='flex'; btns.style.gap='5px';
+      volDiv.appendChild(btns);
+
+      div.appendChild(volDiv);
+    });
+
+    const markAllBtn = document.createElement('button'); markAllBtn.textContent='Segna tutta letta'; markAllBtn.className='green';
+    markAllBtn.onclick = ()=>{ s.volumes.forEach(v=>v.read[currentReader]=true); renderContent(); };
+    div.appendChild(markAllBtn);
+
+    container.appendChild(div);
+  });
+}
+
+// ------- EDICOLA -------
+function renderEdicola(container){
+  const h = document.createElement('h2'); h.textContent="🏪 Edicola - Volumi mancanti"; container.appendChild(h);
+  let missing=false;
+  series.forEach(s=>{
+    const miss = s.volumes.filter(v=>!Object.values(v.read).every(r=>r===true));
+    if(miss.length>0){ missing=true;
+      const div=document.createElement('div'); div.innerHTML="<strong>"+s.name+"</strong>: "+miss.map(v=>v.number).join(", "); container.appendChild(div);
+    }
+  });
+  if(!missing){ const p=document.createElement('p'); p.textContent="Tutto aggiornato!"; container.appendChild(p); }
+}
+
+// ------- DATABASE -------
+function renderDatabase(container){
+  const h = document.createElement('h2'); h.textContent="🗄️ Database"; container.appendChild(h);
+
+  const sagaInput = document.createElement('input'); sagaInput.placeholder="Nuova saga";
+  const sagaBtn = document.createElement('button'); sagaBtn.textContent="+ Saga"; sagaBtn.onclick=()=>{
+    if(sagaInput.value.trim()){ sagas.push({name:sagaInput.value}); sagaInput.value=''; renderContent(); }
+  };
+  container.appendChild(sagaInput); container.appendChild(sagaBtn);
+
+  const seriesInput = document.createElement('input'); seriesInput.placeholder="Nuova serie";
+  const seriesBtn = document.createElement('button'); seriesBtn.textContent="+ Serie"; seriesBtn.onclick=()=>{
+    if(seriesInput.value.trim()){ series.push({name:seriesInput.value,status:"in corso",volumes:[],saga:null}); seriesInput.value=''; renderContent(); }
+  };
+  container.appendChild(document.createElement('br'));
+  container.appendChild(seriesInput); container.appendChild(seriesBtn);
+
+  // Mostra saghe
+  const sH = document.createElement('h3'); sH.textContent="Saghe:"; container.appendChild(sH);
+  sagas.forEach((s,i)=>{
+    const div=document.createElement('div'); div.className='saga-box';
+    div.textContent=s.name;
+    const delBtn=document.createElement('button'); delBtn.textContent='Elimina'; delBtn.className='red';
+    delBtn.onclick = ()=>{ if(confirm("Eliminare saga?")){ sagas.splice(i,1); renderContent(); } };
+    div.appendChild(delBtn);
+    container.appendChild(div);
+  });
+
+  // Mostra serie
+  const srH = document.createElement('h3'); srH.textContent="Serie:"; container.appendChild(srH);
+  series.forEach((s,i)=>{
+    const div=document.createElement('div'); div.className='series-box';
+    div.textContent=s.name + " ("+(s.saga||"nessuna saga")+")";
+    const delBtn=document.createElement('button'); delBtn.textContent='Elimina'; delBtn.className='red';
+    delBtn.onclick = ()=>{ if(confirm("Eliminare serie?")){ series.splice(i,1); renderContent(); } };
+    div.appendChild(delBtn);
+    container.appendChild(div);
+  });
+}
+
+// ------- SAGHE -------
+function renderSaghe(container){
+  const h=document.createElement('h2'); h.textContent="📚 Saghe"; container.appendChild(h);
+  if(sagas.length===0){ const p=document.createElement('p'); p.textContent="Nessuna saga"; container.appendChild(p); return; }
+  sagas.forEach((s,i)=>{
+    const div=document.createElement('div'); div.className='saga-box'; div.textContent=s.name;
+    const delBtn=document.createElement('button'); delBtn.textContent='Elimina'; delBtn.className='red';
+    delBtn.onclick = ()=>{ if(confirm("Eliminare saga?")){ sagas.splice(i,1); renderContent(); } };
+    div.appendChild(delBtn);
+    container.appendChild(div);
+  });
+}
+
+// ------- BACKUP CSV -------
+function renderBackup(container){
+  const h=document.createElement('h2'); h.textContent="📦 Backup CSV"; container.appendChild(h);
+  const btn=document.createElement('button'); btn.textContent="Scarica CSV"; btn.className='green';
+  btn.onclick=()=>{
+    let csv = series.map(s=>s.volumes.map(v=>s.name+","+v.number+","+Object.keys(v.read).filter(r=>v.read[r]).join("|")+","+s.status).join("\n")).join("\n");
+    const blob = new Blob([csv],{type:"text/csv"});
+    const link = document.createElement('a'); link.href=URL.createObjectURL(blob); link.download="manga_backup.csv"; document.body.appendChild(link); link.click(); document.body.removeChild(link);
+  };
+  container.appendChild(btn);
+}
+
+// ------- INIZIALIZZAZIONE -------
+renderMenu();
+renderContent();
+
+</script>
+
+</body>
+</html>

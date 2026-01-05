@@ -269,6 +269,7 @@ function reading(c){
     vols.forEach(v=>{
       const row=document.createElement("div");
       row.style.display="flex"; row.style.alignItems="center"; row.style.gap="8px";
+
       const chk=document.createElement("input"); chk.type="checkbox";
       chk.checked=db.reading.find(r=>r.user===db.currentUser && r.series===seriesId && r.number===v.number) ? true:false;
       chk.onchange=()=>{ 
@@ -277,12 +278,18 @@ function reading(c){
         save(); renderRead(seriesId);
       };
       row.appendChild(chk);
-      row.appendChild(document.createTextNode("Volume "+v.number));
 
-      // altri utenti
+      const label=document.createElement("span"); label.textContent="Volume "+v.number;
+      row.appendChild(label);
+
+      // mostra altri utenti
       db.users.filter(u=>u.id!==db.currentUser).forEach(u=>{
         if(db.reading.find(r=>r.user===u.id && r.series===seriesId && r.number===v.number)){
-          const sp=document.createElement("span"); sp.className="checkboxOther"; sp.style.background=u.color; sp.textContent=u.name; row.appendChild(sp);
+          const sp=document.createElement("span"); 
+          sp.className="checkboxOther"; 
+          sp.style.background=u.color; 
+          sp.textContent=u.name; 
+          row.appendChild(sp);
         }
       });
 
@@ -300,6 +307,7 @@ function reading(c){
     save(); renderRead(seriesId);
   };
 }
+
 
 render();
 </script>
